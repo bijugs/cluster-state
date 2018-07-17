@@ -33,7 +33,7 @@ public class ClusterStateController {
     public static String defaultMessage() {
         return "Available end points "+  
         "http://host:8080/cluster?id=cluster-id&act=action where "+
-        ":action = brokers|kafka-state|zk-quorum|zk-state";
+        ":action = kafka-brokers|kafka-state|zk-quorum|zk-state";
     }
 
     public static String getZKDataString(ZooKeeper zk, String znode) throws Exception {
@@ -79,7 +79,7 @@ public class ClusterStateController {
             ZooKeeper zk;
             List<String> zNodes;
             switch(act) {
-                case "brokers":
+                case "kafka-brokers":
                     zk = connector.connect(zkQuorum);
                     zNodes = zk.getChildren("/brokers/ids", true);
                     String childrenNodes = new String(); //not the best

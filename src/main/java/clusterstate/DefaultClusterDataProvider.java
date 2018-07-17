@@ -6,6 +6,22 @@ import java.io.BufferedReader;
 import java.util.Map;
 import java.util.HashMap;
 
+/*
+ Reads a file named z.txt with following data and loads into a Map
+=====
+nodes
+cluster-name-a|component1|host1,host2,host3
+cluster-name-a|component2|host1,host2,host3
+cluster-name-b|component1|host1,host2,host3
+cluster-name-b|component2|host1,host2,host3
+end
+port
+cluster-name-a|component1|porta
+cluster-name-a|component2|portb
+cluster-name-b|component1|porta
+cluster-name-b|component2|portb
+end
+*/
 public class DefaultClusterDataProvider implements ClusterDataProvider {
 
     private static final Map<String, String> zkMap; 
@@ -17,12 +33,12 @@ public class DefaultClusterDataProvider implements ClusterDataProvider {
             String line;
             while ((line = in.readLine()) != null) {
                switch(line) {
-                  case "zkquorum":
+                  case "nodes":
                      while ((line = in.readLine()) != null) {
                         if (line.equalsIgnoreCase("end"))
                            break;
                         String[] parts = line.split("\\|");
-                        zkMap.put(parts[0]+"-zkquorum",parts[1]);
+                        zkMap.put(parts[0]+"-"+parts[1],parts[2]);
                      }
                      break;
                   case "port":
@@ -44,12 +60,28 @@ public class DefaultClusterDataProvider implements ClusterDataProvider {
     }
 
     public String getZKQuorum(String clusterName){
-        String key = clusterName+"-zkquorum";
-        return zkMap.get(key);
+        String key = clusterName+"-zookeeper";
+        String zkNodes = zkMap.get(key);
+        if (zkNodes == null)
+           return null;
+        String zkPort = getZKPort(clusterName);
+        String[] zkNodeList = zkNodes.split(",");
+        String ret = "";
+        int i = 0;
+        for (i = 0; i < zkNodeList.length-1; i++) {
+           ret += zkNodeList[i] + ":" + zkPort + ",";
+        }
+        ret += zkNodeList[i] + ":" + zkPort;
+        return ret;
     }
 
     public String getKafkaPort(String clusterName){
         String key = clusterName+"-kafka-port";
+        return zkMap.get(key);
+    }
+
+    public String getZKPort(String clusterName){
+        String key = clusterName+"-zookeeper-port";
         return zkMap.get(key);
     }
 
