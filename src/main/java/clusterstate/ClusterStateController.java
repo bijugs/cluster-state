@@ -1,7 +1,10 @@
 package clusterstate;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Properties;
+import java.util.Set;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
@@ -15,6 +18,10 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PathVariable;
 
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.ListTopicsResult;
+import org.apache.kafka.common.KafkaFuture;
 import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.KeeperException;
@@ -55,6 +62,42 @@ public class ClusterStateController {
         }
         if (count >= 3)
            ret = true;
+        return ret;
+    }
+
+    public static AdminClient getKafkaAdmin(String zkQuorum) {
+        Properties props = new Properties();
+        props.setProperty(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, zkQuorum);
+        AdminClient adminClient = AdminClient.create(props);
+        return adminClient;
+    }
+
+    /*public static String getKafkaBrokers(String zkQuorum) {
+        zk = connector.connect(zkQuorum);
+        zNodes = zk.getChildren("/brokers/ids", true);
+        String childrenNodes = new String(); //not the best
+        ListIterator<String> ite = zNodes.listIterator();
+        if (ite.hasNext())
+            childrenNodes += getZKDataString(zk, "/brokers/ids/"+ite.next()) + ":" + dataProvider.getKafkaPort(id);
+        while (ite.hasNext())
+        {
+            childrenNodes += "," + getZKDataString(zk, "/brokers/ids/"+ite.next())  + ":" + dataProvider.getKafkaPort(id);
+        }
+        zk.close();
+        return childrenNodes;
+    }*/
+
+    public static String getTopics(AdminClient adminClient) {
+        String ret = null;
+        try {
+            ListTopicsResult topicResult = adminClient.listTopics();
+            KafkaFuture<java.util.Set<java.lang.String>> topicNamesFuture = topicResult.names();
+            java.util.Set<java.lang.String> topicNames = topicNamesFuture.get();
+            String[] topicArray = topicNames.toArray(new String[0]);
+            ret = Arrays.toString(topicArray);
+        } catch (Exception e) {
+
+        }
         return ret;
     }
 
@@ -108,6 +151,24 @@ public class ClusterStateController {
                         return new ClusterStatus(id,act,"OK","UP");
                     else
                         return new ClusterStatus(id,act,"OK","DOWN");
+                 case "kafka-topics":
+                    zk = connector.connect(zkQuorum);
+                    zNodes = zk.getChildren("/brokers/ids", true);
+                    childrenNodes = new String(); //not the best
+                    ite = zNodes.listIterator();
+                    if (ite.hasNext())
+                        childrenNodes += getZKDataString(zk, "/brokers/ids/"+ite.next()) + ":" + dataProvider.getKafkaPort(id);
+                    while (ite.hasNext())
+                    {
+                       childrenNodes += "," + getZKDataString(zk, "/brokers/ids/"+ite.next())  + ":" + dataProvider.getKafkaPort(id);
+                    }
+                    zk.close();
+                    AdminClient adminClient = getKafkaAdmin(childrenNodes);
+                    String topics = getTopics(adminClient);
+                    if (topics == null)
+                        return new ClusterStatus(id,act,"OK","Error");
+                    else
+                        return new ClusterStatus(id,act,"OK",topics);
                  default:
                     return new ClusterStatus(id,act,"Fail",defaultMessage());
             }  
