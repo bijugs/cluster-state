@@ -85,6 +85,19 @@ public class DefaultClusterDataProvider implements ClusterDataProvider {
         return zkMap.get(key);
     }
 
+    public String[] getNamenodes(String clusterName) {
+        String key = clusterName+"-namenode";
+        String nameNodes = zkMap.get(key);
+        if (nameNodes == null)
+           return null;
+        return nameNodes.split(",");        
+    }
+
+    public String getNamenodePort(String clusterName){
+        String key = clusterName+"-namenode-port";
+        return zkMap.get(key);
+    }
+
     public static void main(String args[]) {
          DefaultClusterDataProvider dp = new DefaultClusterDataProvider();
          System.out.println(dp.zkMap);
