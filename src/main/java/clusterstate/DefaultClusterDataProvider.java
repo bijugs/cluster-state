@@ -59,6 +59,11 @@ public class DefaultClusterDataProvider implements ClusterDataProvider {
         }
     }
 
+    public String getZKNodes(String clusterName){
+        String key = clusterName+"-zookeeper";
+        return zkMap.get(key);
+    }
+
     public String getZKQuorum(String clusterName){
         String key = clusterName+"-zookeeper";
         String zkNodes = zkMap.get(key);
@@ -95,6 +100,32 @@ public class DefaultClusterDataProvider implements ClusterDataProvider {
 
     public String getNamenodePort(String clusterName){
         String key = clusterName+"-namenode-port";
+        return zkMap.get(key);
+    }
+
+    public String[] getHiveServers(String clusterName){
+        String key = clusterName+"-hiveserver";
+        String nameNodes = zkMap.get(key);
+        if (nameNodes == null)
+           return null;
+        return nameNodes.split(",");
+    }
+
+    public String getHiveServerPort(String clusterName){
+        String key = clusterName+"-hiveserver-port";
+        return zkMap.get(key);
+    }
+
+    public String[] getYarnRMServers(String clusterName){
+        String key = clusterName+"-yarnrm";
+        String rmNodes = zkMap.get(key);
+        if (rmNodes == null)
+           return null;
+        return rmNodes.split(",");
+    }
+ 
+    public String getYarnRMAMIPort(String clusterName){
+        String key = clusterName+"-yarnrmami-port";
         return zkMap.get(key);
     }
 

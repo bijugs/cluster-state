@@ -19,7 +19,7 @@ public class HdfsState {
 
     private static final Logger logger = LoggerFactory.getLogger(HdfsState.class);
 
-    public static boolean checkHdfs(ClusterDataProvider dataProvider, Configuration conf, String clusterId, String hdfsPath){
+    public static boolean testHdfs(ClusterDataProvider dataProvider, Configuration conf, String clusterId, String hdfsPath){
         String nnPort = dataProvider.getNamenodePort(clusterId);
         String[] nameNodes = dataProvider.getNamenodes(clusterId);
         if (nnPort == null || nameNodes == null) {

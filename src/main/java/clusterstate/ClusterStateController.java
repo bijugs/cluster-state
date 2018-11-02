@@ -36,7 +36,9 @@ public class ClusterStateController {
     private boolean isSecure = false;
     private String userName;
     private String keyTab;
+    private String krbRealm;
     private String hdfsPath;
+    private String hiveDB;
 
     static
     {
@@ -47,6 +49,8 @@ public class ClusterStateController {
     public ClusterStateController(@Value("${isSecure}")  String isSecure,
                                   @Value("${userName}")  String userName,
                                   @Value("${keyTab}")  String keyTab,
+                                  @Value("${krbRealm}")  String krbRealm,
+                                  @Value("${hiveDB}")  String hiveDB,
                                   @Value("${hdfsPath}")  String hdfsPath) throws Exception {
         logger.info("In constructor property {}", isSecure);
         if (isSecure.equalsIgnoreCase("true"))
@@ -56,22 +60,27 @@ public class ClusterStateController {
         logger.info("In constructor property {}", keyTab);
         this.keyTab = keyTab;
         this.hdfsPath = hdfsPath;
+        this.krbRealm = krbRealm;
+        this.hiveDB = hiveDB;
         conf = new Configuration();
         conf.set("fs.hdfs.impl",org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
         conf.set("fs.file.impl",org.apache.hadoop.fs.LocalFileSystem.class.getName());
         try {
             if (this.isSecure) {
-                System.out.println("Performing UGI login since the cluster is secure");
-                conf.set("hadoop.security.authentication", "Kerberos");
-                UserGroupInformation.setConfiguration(conf);
-                if (userName != null && keyTab != null) {
-                    System.out.println("Performing UGI login from keyTab");
-                    UserGroupInformation.loginUserFromKeytab(userName, keyTab);
-                } else { // This may not work, need to be checked
-                    System.out.println("Performing UGI login using current user");
-                    UserGroupInformation.loginUserFromSubject(null);
-                }
-             }
+               System.out.println("Performing UGI login since the cluster is secure");
+               conf.set("hadoop.security.authentication", "Kerberos");
+               conf.set("hbase.security.authentication", "Kerberos");
+               conf.set("hbase.master.kerberos.principal", "hbase/_HOST@"+krbRealm);
+               conf.set("hbase.regionserver.kerberos.principal", "hbase/_HOST@"+krbRealm);
+               UserGroupInformation.setConfiguration(conf);
+               if (userName != null && keyTab != null) {
+                  System.out.println("Performing UGI login from keyTab");
+                  UserGroupInformation.loginUserFromKeytab(userName, keyTab);
+               } else { // This may not work with Springboot, need to be checked
+                  System.out.println("Performing UGI login using current user");
+                  UserGroupInformation.loginUserFromSubject(null);
+               }
+            }
         } catch (Exception ex) {
              logger.info("Error when UGI login ");
              throw ex;         
@@ -83,6 +92,13 @@ public class ClusterStateController {
         "http://host:8080/cluster?id=cluster-id&act=action where "+
         ":action = kafka-brokers|kafka-state|zk-quorum|zk-state";
     }
+
+    public static ClusterStatus createTestResult(boolean success, String id, String act) {
+       if (success)
+          return new ClusterStatus(id,act,"OK","UP");
+       else
+          return new ClusterStatus(id,act,"OK","DOWN");
+    } 
 
     @RequestMapping("/")
     @ResponseBody
@@ -106,12 +122,15 @@ public class ClusterStateController {
             ZooKeeper zk;
             List<String> zNodes;
             switch(act) {
+                case "hbase-test":
+                    boolean isHbaseFine = HbaseState.testHbase(dataProvider,conf,id);
+                    return createTestResult(isHbaseFine,id,act);
                 case "hdfs-test":
-                    boolean hdfsFine = HdfsState.checkHdfs(dataProvider,conf,id,hdfsPath);
-                    if (hdfsFine)
-                       return new ClusterStatus(id,act,"OK","UP");
-                    else
-                       return new ClusterStatus(id,act,"OK","DOWN");
+                    boolean isHdfsFine = HdfsState.testHdfs(dataProvider,conf,id,hdfsPath);
+                    return createTestResult(isHdfsFine,id,act);
+                case "hive-test":
+                    boolean isHiveFine = HiveState.testHive(dataProvider,conf,id,hiveDB,userName,keyTab,krbRealm);
+                    return createTestResult(isHiveFine,id,act);
                 case "kafka-brokers":
                     zk = connector.connect(zkQuorum);
                     String childrenNodes = KafkaState.getKafkaBrokers(dataProvider, zk, id);
@@ -121,18 +140,11 @@ public class ClusterStateController {
                     zk = connector.connect(zkQuorum);
                     zNodes = zk.getChildren("/brokers/ids", true);
                     zk.close();
-                    if (zNodes.size() > 3)
-                       return new ClusterStatus(id,act,"OK","UP");
-                    else
-                       return new ClusterStatus(id,act,"OK","DOWN");
-                 case "zk-quorum":
-                    return new ClusterStatus(id,act,"OK",zkQuorum);
-                 case "zk-state":
-                    boolean zkState = ZKState.getZKState(connector, zkQuorum);
-                    if (zkState) 
-                        return new ClusterStatus(id,act,"OK","UP");
-                    else
-                        return new ClusterStatus(id,act,"OK","DOWN");
+                    boolean isKafkaFine = (zNodes.size() > 3);
+                    return createTestResult(isKafkaFine,id,act);
+                case "phoenix-test":
+                    boolean isPhoenixFine = PhoenixState.testPhoenix(dataProvider,conf,id,userName,keyTab);
+                    return createTestResult(isPhoenixFine,id,act);
                  case "kafka-topics":
                     zk = connector.connect(zkQuorum);
                     String topics = KafkaState.getTopics(dataProvider,zk,id);
@@ -141,6 +153,14 @@ public class ClusterStateController {
                         return new ClusterStatus(id,act,"OK","Error");
                     else
                         return new ClusterStatus(id,act,"OK",topics);
+                case "yarn-state":
+                    boolean isYarnFine = YarnState.checkYarn(dataProvider,conf,id,krbRealm);
+                    return createTestResult(isYarnFine,id,act);
+                 case "zk-quorum":
+                    return new ClusterStatus(id,act,"OK",zkQuorum);
+                 case "zk-state":
+                    boolean isZKFine = ZKState.checkZK(connector, zkQuorum);
+                    return createTestResult(isZKFine,id,act);
                  default:
                     return new ClusterStatus(id,act,"Fail",defaultMessage());
             }  

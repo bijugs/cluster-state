@@ -1,15 +1,19 @@
 package clusterstate;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.KeeperException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 public class ZKState {
 
     public static final ObjectMapper mapper = new ObjectMapper();
+    private static final Logger logger = LoggerFactory.getLogger(ZKState.class);
 
     public static String getZKDataString(ZooKeeper zk, String znode) throws Exception {
         Stat stat = new Stat();
@@ -18,7 +22,7 @@ public class ZKState {
         return zkDataTree.get("host").textValue();
     }
 
-    public static boolean getZKState(zkConnect connector, String quorum) throws Exception {
+    public static boolean checkZK(zkConnect connector, String quorum) throws Exception {
         String[] nodes = quorum.split(",");
         int count = 0;
         boolean ret = false;
@@ -28,7 +32,8 @@ public class ZKState {
               count++;
            zk.close();
         }
-        if (count >= 3)
+        logger.info("Quorum has "+nodes.length+" nodes and "+count+" are alive"); 
+        if (count >= (nodes.length/2+1))
            ret = true;
         return ret;
     }
