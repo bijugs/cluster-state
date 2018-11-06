@@ -39,6 +39,7 @@ public class ClusterStateController {
     private String krbRealm;
     private String hdfsPath;
     private String hiveDB;
+    private String hiveTable;
 
     static
     {
@@ -51,6 +52,7 @@ public class ClusterStateController {
                                   @Value("${keyTab}")  String keyTab,
                                   @Value("${krbRealm}")  String krbRealm,
                                   @Value("${hiveDB}")  String hiveDB,
+                                  @Value("${hiveTable}")  String hiveTable,
                                   @Value("${hdfsPath}")  String hdfsPath) throws Exception {
         logger.info("In constructor property {}", isSecure);
         if (isSecure.equalsIgnoreCase("true"))
@@ -62,6 +64,7 @@ public class ClusterStateController {
         this.hdfsPath = hdfsPath;
         this.krbRealm = krbRealm;
         this.hiveDB = hiveDB;
+        this.hiveTable = hiveTable;
         conf = new Configuration();
         conf.set("fs.hdfs.impl",org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
         conf.set("fs.file.impl",org.apache.hadoop.fs.LocalFileSystem.class.getName());
@@ -129,7 +132,7 @@ public class ClusterStateController {
                     boolean isHdfsFine = HdfsState.testHdfs(dataProvider,conf,id,hdfsPath);
                     return createTestResult(isHdfsFine,id,act);
                 case "hive-test":
-                    boolean isHiveFine = HiveState.testHive(dataProvider,conf,id,hiveDB,userName,keyTab,krbRealm);
+                    boolean isHiveFine = HiveState.testHive(dataProvider,conf,id,hiveDB,hiveTable,userName,keyTab,krbRealm);
                     return createTestResult(isHiveFine,id,act);
                 case "kafka-brokers":
                     zk = connector.connect(zkQuorum);

@@ -22,6 +22,7 @@ public class HiveState {
                                     Configuration conf,
                                     String clusterId, 
                                     String hiveDB,
+                                    String hiveTable,
                                     String userName,
                                     String keyTab,
                                     String krbRealm) {
@@ -29,6 +30,7 @@ public class HiveState {
         String[] hiveServers = dataProvider.getHiveServers(clusterId);
         String hivePort = dataProvider.getHiveServerPort(clusterId);
         boolean ret = false;
+        logger.info("testHive: hiveDB {} and hiveTable {}", hiveDB, hiveTable);
         try {
             UserGroupInformation.setConfiguration(conf);
             UserGroupInformation.loginUserFromKeytab(userName, keyTab);
@@ -41,20 +43,19 @@ public class HiveState {
                 Class.forName(driverName);
                 con = DriverManager.getConnection("jdbc:hive2://"+hiveServer+":"+hivePort+"/"+hiveDB+";principal=hive/"+hiveServer+"@"+krbRealm, "", "");
                 Statement stmt = con.createStatement();
-                String tableName = "testHiveNonTableBN";      
-                stmt.execute("drop table " + tableName);
-                stmt.execute("create table "+ tableName + "(key int, value string) row format delimited fields terminated by ',' stored as textfile");
-                String sql = "show tables '" + tableName + "'";
+                stmt.execute("drop table " + hiveTable);
+                stmt.execute("create table "+ hiveTable + "(key int, value string) row format delimited fields terminated by ',' stored as textfile");
+                String sql = "show tables '" + hiveTable + "'";
                 ResultSet res = stmt.executeQuery(sql);
                 if (res.next())
                    ret = true;
                 con.close();
                 return ret;
             } catch (ClassNotFoundException e) {
-                e.printStackTrace();
+                logger.info("ClassNotFoundException ",e);
                 System.exit(1);
             } catch (Exception ex) {
-                ex.printStackTrace();
+                logger.info("Exception ",ex);
             } 
         }
         return ret;
