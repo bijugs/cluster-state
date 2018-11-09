@@ -1,6 +1,8 @@
 package clusterstate;
 
 import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Properties;
@@ -40,6 +42,7 @@ public class ClusterStateController {
     private String hdfsPath;
     private String hiveDB;
     private String hiveTable;
+    private String kafkaTopic;
 
     static
     {
@@ -53,7 +56,8 @@ public class ClusterStateController {
                                   @Value("${krbRealm}")  String krbRealm,
                                   @Value("${hiveDB}")  String hiveDB,
                                   @Value("${hiveTable}")  String hiveTable,
-                                  @Value("${hdfsPath}")  String hdfsPath) throws Exception {
+                                  @Value("${hdfsPath}")  String hdfsPath,
+                                  @Value("${kafkaTopic}")  String kafkaTopic) throws Exception {
         logger.info("In constructor property {}", isSecure);
         if (isSecure.equalsIgnoreCase("true"))
            this.isSecure = true;
@@ -65,6 +69,7 @@ public class ClusterStateController {
         this.krbRealm = krbRealm;
         this.hiveDB = hiveDB;
         this.hiveTable = hiveTable;
+        this.kafkaTopic = kafkaTopic;
         conf = new Configuration();
         conf.set("fs.hdfs.impl",org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
         conf.set("fs.file.impl",org.apache.hadoop.fs.LocalFileSystem.class.getName());
@@ -145,9 +150,10 @@ public class ClusterStateController {
                     zk.close();
                     boolean isKafkaFine = (zNodes.size() > 3);
                     return createTestResult(isKafkaFine,id,act);
-                case "phoenix-test":
-                    boolean isPhoenixFine = PhoenixState.testPhoenix(dataProvider,conf,id,userName,keyTab);
-                    return createTestResult(isPhoenixFine,id,act);
+                case "kafka-test":
+                    zk = connector.connect(zkQuorum);
+                    isKafkaFine = KafkaState.testKafka(dataProvider,zk,id,kafkaTopic);
+                    return createTestResult(isKafkaFine,id,act);
                  case "kafka-topics":
                     zk = connector.connect(zkQuorum);
                     String topics = KafkaState.getTopics(dataProvider,zk,id);
@@ -156,6 +162,9 @@ public class ClusterStateController {
                         return new ClusterStatus(id,act,"OK","Error");
                     else
                         return new ClusterStatus(id,act,"OK",topics);
+                case "phoenix-test":
+                    boolean isPhoenixFine = PhoenixState.testPhoenix(dataProvider,conf,id,userName,keyTab);
+                    return createTestResult(isPhoenixFine,id,act);
                 case "yarn-state":
                     boolean isYarnFine = YarnState.checkYarn(dataProvider,conf,id,krbRealm);
                     return createTestResult(isYarnFine,id,act);
