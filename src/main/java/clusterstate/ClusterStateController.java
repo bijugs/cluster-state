@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.UserGroupInformation;
@@ -49,6 +50,20 @@ public class ClusterStateController {
         dataProvider = new DefaultClusterDataProvider();
     }
 
+    @Scheduled(fixedRate = 14400000, initialDelay = 14400000)
+    public void scheduleUGILogin() {
+        logger.info("Scheduled UGI Login :: Execution Time - {}", System.currentTimeMillis() );
+        try {
+            if (isSecure && (userName != null && keyTab != null)) {
+               UserGroupInformation.loginUserFromKeytab(userName, keyTab);
+               logger.info("Scheduled UGI login successful");
+            }
+        } catch (Exception ex) {
+             logger.info("Scheduled UGI login failed");
+             System.exit(1);
+        }
+    }
+
     @Autowired
     public ClusterStateController(@Value("${isSecure}")  String isSecure,
                                   @Value("${userName}")  String userName,
@@ -70,27 +85,10 @@ public class ClusterStateController {
         this.hiveDB = hiveDB;
         this.hiveTable = hiveTable;
         this.kafkaTopic = kafkaTopic;
-        conf = new Configuration();
-        conf.set("fs.hdfs.impl",org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
-        conf.set("fs.file.impl",org.apache.hadoop.fs.LocalFileSystem.class.getName());
         try {
-            if (this.isSecure) {
-               System.out.println("Performing UGI login since the cluster is secure");
-               conf.set("hadoop.security.authentication", "Kerberos");
-               conf.set("hbase.security.authentication", "Kerberos");
-               conf.set("hbase.master.kerberos.principal", "hbase/_HOST@"+krbRealm);
-               conf.set("hbase.regionserver.kerberos.principal", "hbase/_HOST@"+krbRealm);
-               UserGroupInformation.setConfiguration(conf);
-               if (userName != null && keyTab != null) {
-                  System.out.println("Performing UGI login from keyTab");
-                  UserGroupInformation.loginUserFromKeytab(userName, keyTab);
-               } else { // This may not work with Springboot, need to be checked
-                  System.out.println("Performing UGI login using current user");
-                  UserGroupInformation.loginUserFromSubject(null);
-               }
-            }
+            conf = CommonUtils.createConfiguration(this.isSecure, this.krbRealm, this.userName, this.keyTab);
         } catch (Exception ex) {
-             logger.info("Error when UGI login ");
+             logger.info("Error creating configuration");
              throw ex;         
         } 
     }
@@ -130,6 +128,8 @@ public class ClusterStateController {
             ZooKeeper zk;
             List<String> zNodes;
             switch(act) {
+                case "hbase-jmx":
+                    return createTestResult(false,id,act);
                 case "hbase-test":
                     boolean isHbaseFine = HbaseState.testHbase(dataProvider,conf,id);
                     return createTestResult(isHbaseFine,id,act);
