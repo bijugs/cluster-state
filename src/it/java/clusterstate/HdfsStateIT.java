@@ -12,7 +12,7 @@ public class HdfsStateIT {
     @Test
     public void itHdfsTest() {
         try {
-            Configuration conf = CommonUtils.createConfiguration(true, "ADDEV.BLOOMBERG.COM", null, null);
+            Configuration conf = CommonUtils.createConfiguration(true, "KRB.COM", null, null);
             boolean testResponse = HdfsState.testHdfs(dataProvider, conf, "dnj2-jr", "/user/"+System.getProperty("user.name"));
             Assert.assertTrue(testResponse);
         } catch (Exception ex) {
